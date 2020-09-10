@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metricsproxy
+package main
 
 //	"encoding/json"
 
@@ -26,9 +26,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/app"
-
-
+	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/app/prom"
 	dto "github.com/prometheus/client_model/go"
 )
 
@@ -78,7 +76,7 @@ func main() {
 	// Missing input means we are reading from an URL.
 	if input != nil {
 		go func() {
-			if err := metrics.ParseReader(input, mfChan); err != nil {
+			if err := prom.ParseReader(input, mfChan); err != nil {
 				log.Fatal("error reading metrics:", err)
 			}
 		}()
@@ -88,14 +86,14 @@ func main() {
 			log.Fatalln(err)
 		}
 		go func() {
-			err := metrics.FetchMetricFamilies(arg, mfChan, transport)
+			err := prom.FetchMetricFamilies(arg, mfChan, transport)
 			if err != nil {
 				log.Fatalln(err)
 			}
 		}()
 	}
 
-	metrics.Write(mfChan)
+	prom.Write(mfChan)
 
 	//	result := []*prom2json.Family{}
 	//	for mf := range mfChan {

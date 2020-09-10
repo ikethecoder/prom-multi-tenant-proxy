@@ -8,4 +8,17 @@ Two micro-services:
 
 Example:
 
-Kong --> `enrich-proxy` --> Prometheus <-- `query-proxy` <-- Grafana <-- Keycloak
+Kong --> `metrics-proxy` --> Prometheus <-- `query-proxy` <-- Grafana <-- Keycloak
+
+
+## Building
+
+```
+cd metrics-proxy
+make go-build
+bin/metrics-proxy
+
+cd query-proxy
+make go-build
+bin/query-proxy
+```
