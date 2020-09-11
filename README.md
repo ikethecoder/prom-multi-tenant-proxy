@@ -25,9 +25,34 @@ bin/query-proxy
 
 ## Running
 
+### Metrics Proxy
+
 ```
 export MYAPP_PORT=9092
 export MYAPP_METRICSURL=https://kong-admin:8001
 export MYAPP_LABELMAPPATH=sample-map.yml
 
 bin/metrics-proxy
+```
+
+### Query Proxy
+
+```
+export MYAPP_PORT=9091
+export MYAPP_PROMETHEUSURL=http://prometheus-server:9090
+export MYAPP_NAMESPACELABEL=team
+export MYAPP_NAMESPACECLAIM=team
+export MYAPP_JWKSURL=https://auth.org/auth/realms/myrealm/protocol/openid-connect/certs
+export MYAPP_VERIFYTOKEN=false
+
+bin/query-proxy
+```
+
+```
+export TOK=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE5MTYyMzkwMjIsInRlYW0iOiJhYmMifQ.bdmbECR2RdUCRxgSpY8hxQ0aRYlKyvHZxRfoinLUeA0
+
+export QUERY="sum(rate(kong_http_status%7Binstance%3D~%22.*%22%7D%5B1m%5D))"
+
+curl -v "http://localhost:9091/api/v1/query_range?step=14&start=1599844738.000&end=1599848338.000&query=$QUERY" -H "Authorization: Bearer $TOK"
+
+```
