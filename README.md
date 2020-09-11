@@ -22,3 +22,12 @@ cd query-proxy
 make go-build
 bin/query-proxy
 ```
+
+## Running
+
+```
+export MYAPP_PORT=9092
+export MYAPP_METRICSURL=https://kong-admin:8001
+export MYAPP_LABELMAPPATH=sample-map.yml
+
+bin/metrics-proxy

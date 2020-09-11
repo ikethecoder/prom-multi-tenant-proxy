@@ -1,4 +1,4 @@
-// Copyright 2020 BC GOV
+// Copyright 2020 ikethecoder
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,15 +14,16 @@
 package main
 
 import (
-	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
-)
 
-const DEST_URL = "https://google.com"
+	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/app/prom"
+	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
+	dto "github.com/prometheus/client_model/go"
+)
 
 // Hop-by-hop headers. These are removed when sent to the backend.
 // http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
@@ -62,6 +63,8 @@ func appendHostToXForwardHeader(header http.Header, host string) {
 }
 
 type proxy struct {
+	forwardUrl string
+	labelMap pkg.LabelNamespaceMap
 }
 
 func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
@@ -80,10 +83,11 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	//http://golang.org/src/pkg/net/http/client.go
 	req.RequestURI = ""
 
-	u, err := url.Parse(DEST_URL)
+	u, err := url.Parse(p.forwardUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
+	u.Path = req.URL.Path
 
 	// Construct request to send to origin server
 	rr := http.Request{
@@ -116,7 +120,12 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 
 	copyHeader(wr.Header(), resp.Header)
 	wr.WriteHeader(resp.StatusCode)
-	if _, err := io.Copy(wr, resp.Body); err != nil {
-		log.Fatal(err)
-	}
+
+	mfChan := make(chan *dto.MetricFamily, 1024)
+	go func() {
+		if err := prom.ParseReader(resp.Body, mfChan); err != nil {
+			log.Fatal("error reading metrics:", err)
+		}
+	}()
+	prom.Write(mfChan, wr, p.labelMap)
 }

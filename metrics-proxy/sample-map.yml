@@ -1,0 +1,9 @@
+matchLabel: service
+namespaceLabel: team
+matches:
+  service_1:
+    namespace: team_A
+  service_2:
+    namespace: team_A
+  service_3:
+    namespace: team_B
