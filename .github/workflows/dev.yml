@@ -43,3 +43,16 @@ jobs:
     -
       name: Image digest (metrics-proxy)
       run: echo ${{ steps.docker_build_for_metrics_proxy.outputs.digest }}
+
+    -
+      name: Build and push (query-proxy)
+      id: docker_build_for_query_proxy
+      uses: docker/build-push-action@v2
+      with:
+        context: query-proxy
+        file: query-proxy/Dockerfile
+        push: true
+        tags: ikethecoder/prometheus-query-auth-proxy:latest
+    -
+      name: Image digest (query-proxy)
+      run: echo ${{ steps.docker_build_for_query_proxy.outputs.digest }}      
