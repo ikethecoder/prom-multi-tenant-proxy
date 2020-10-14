@@ -128,7 +128,7 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 }
 
 func writeUnauthorisedResponse(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
-	w.WriteHeader(401)
-	w.Write([]byte("Unauthorised\n"))
+	//w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
+	w.WriteHeader(400)
+	w.Write([]byte("{\"status\":\"error\",\"error\":\"Blocked Access\"}\n"))
 }
