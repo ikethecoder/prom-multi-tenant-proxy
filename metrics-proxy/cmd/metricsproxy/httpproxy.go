@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/app/prom"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
 	dto "github.com/prometheus/client_model/go"
@@ -64,7 +65,8 @@ func appendHostToXForwardHeader(header http.Header, host string) {
 
 type proxy struct {
 	forwardUrl string
-	labelMap pkg.LabelNamespaceMap
+	kongUrl string
+	lcache *cache.Cache
 }
 
 func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
@@ -127,5 +129,20 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 			log.Fatal("error reading metrics:", err)
 		}
 	}()
-	prom.Write(mfChan, wr, p.labelMap)
+
+	log.Println("Going into the cache..")
+	if labelMap, found := p.lcache.Get("kong-services"); found {
+		log.Println("Found!")
+		prom.Write(mfChan, wr, *labelMap.(*pkg.LabelNamespaceMap))
+	} else {
+		log.Println("Refreshing kong services...")
+		labelMap, err := pkg.ParseConfig(&p.kongUrl)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		p.lcache.Set("kong-services", labelMap, cache.DefaultExpiration)
+
+		prom.Write(mfChan, wr, *labelMap)
+	}
+
 }

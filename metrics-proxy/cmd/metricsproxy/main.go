@@ -19,10 +19,16 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"time"
 	"net/http"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
+)
+
+var (
+	lcache  *cache.Cache
 )
 
 // export MYAPP_NAMESPACELABEL=abc
@@ -30,7 +36,7 @@ type Specification struct {
     Debug          bool `default:false`
     Port           int `required:"true", default: 9092`
     MetricsUrl     string `required:"true"`
-	LabelMapPath   string `required:"true", default:"labelmap.yml"`
+	KongUrl   string `required:"true", default:"http://kong:8001"`
 }
 
 func main() {
@@ -47,14 +53,18 @@ func main() {
 
 	flag.Parse()
 
-	labelMap, err := pkg.ParseConfig(&s.LabelMapPath)
-    if err != nil {
-        log.Fatal(err.Error())
-    }
-	
+	lcache := cache.New(1*time.Minute, 1*time.Minute)
+
+	labelMap, err := pkg.ParseConfig(&s.KongUrl)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	lcache.Set("kong-services", labelMap, cache.DefaultExpiration)
+
 	handler := &proxy{}
 	handler.forwardUrl = s.MetricsUrl
-	handler.labelMap = *labelMap
+	handler.kongUrl = s.KongUrl
+	handler.lcache = lcache
 
 	addr := fmt.Sprintf("0.0.0.0:%d", s.Port)
 

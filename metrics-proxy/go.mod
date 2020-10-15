@@ -2,6 +2,8 @@ module github.com/ikethecoder/prom-multi-tenant-proxy
 
 require (
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
