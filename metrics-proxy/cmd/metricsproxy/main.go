@@ -45,8 +45,8 @@ func main() {
     if err != nil {
         log.Fatal(err.Error())
     }
-    format := "Debug: %v\nPort: %d\nMetricsUrl: %s\n"
-    _, err = fmt.Printf(format, s.Debug, s.Port, s.MetricsUrl)
+    format := "Debug: %v\nPort: %d\nMetricsUrl: %s\nKongAdmin: %s\n"
+    _, err = fmt.Printf(format, s.Debug, s.Port, s.MetricsUrl, s.KongUrl)
     if err != nil {
         log.Fatal(err.Error())
     }
@@ -57,10 +57,11 @@ func main() {
 
 	labelMap, err := pkg.ParseConfig(&s.KongUrl)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
+	} else {
+		lcache.Set("kong-services", labelMap, cache.DefaultExpiration)
 	}
-	lcache.Set("kong-services", labelMap, cache.DefaultExpiration)
-
+	
 	handler := &proxy{}
 	handler.forwardUrl = s.MetricsUrl
 	handler.kongUrl = s.KongUrl

@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"log"
+	"errors"
 	"fmt"
 	"strings"
 	// "io/ioutil"
@@ -48,11 +49,13 @@ func ParseConfig(location *string) (*LabelNamespaceMap, error) {
 		log.Println("Getting", nextUrl)
 		resp, err := http.Get(fmt.Sprintf("%s%s", *location, nextUrl))
 		if err != nil {
-			log.Fatal(err)
 			return nil, err
 		}
 		defer resp.Body.Close()
 
+		if resp.StatusCode != 200 {
+			return nil, errors.New("Failed to get Kong Service list.")
+		}
 		json.NewDecoder(resp.Body).Decode(&data)
 		log.Println("Decoded - is next?", data.Next, len(data.Services))
 

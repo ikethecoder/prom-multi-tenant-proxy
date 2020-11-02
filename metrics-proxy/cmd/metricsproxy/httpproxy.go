@@ -91,6 +91,11 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	}
 	u.Path = req.URL.Path
 
+	if req.URL.Path != "/metrics" {
+		http.Error(wr, "Invalid path", http.StatusNotFound)
+		return
+	}
+
 	// Construct request to send to origin server
 	rr := http.Request{
 		Method: req.Method,
@@ -112,7 +117,8 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	resp, err := client.Do(&rr)
 	if err != nil {
 		http.Error(wr, "Server Error", http.StatusInternalServerError)
-		log.Fatal("ServeHTTP:", err)
+		log.Println("ServeHTTP:", err)
+		return
 	}
 	defer resp.Body.Close()
 
@@ -126,22 +132,22 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	mfChan := make(chan *dto.MetricFamily, 1024)
 	go func() {
 		if err := prom.ParseReader(resp.Body, mfChan); err != nil {
-			log.Fatal("error reading metrics:", err)
+			log.Println("ERROR reading metrics:", err)
+			return
 		}
 	}()
 
-	log.Println("Going into the cache..")
 	if labelMap, found := p.lcache.Get("kong-services"); found {
-		log.Println("Found!")
+		log.Println("Found Kong config in cache.. using it!")
 		prom.Write(mfChan, wr, *labelMap.(*pkg.LabelNamespaceMap))
 	} else {
 		log.Println("Refreshing kong services...")
 		labelMap, err := pkg.ParseConfig(&p.kongUrl)
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Println(err.Error())
+			http.Error(wr, "Server Error", http.StatusInternalServerError)
 		}
 		p.lcache.Set("kong-services", labelMap, cache.DefaultExpiration)
-
 		prom.Write(mfChan, wr, *labelMap)
 	}
 
