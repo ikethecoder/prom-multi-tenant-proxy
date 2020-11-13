@@ -14,11 +14,12 @@
 package prom
 
 import (
-	"bufio"
+//	"bufio"
 	"fmt"
 	"io"
 
-	"github.com/prometheus/common/log"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/prometheus/common/expfmt"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
 	dto "github.com/prometheus/client_model/go"
@@ -52,7 +53,7 @@ func AddLabel(item *dto.Metric, name string, val string) {
 }
 
 func Write(ch chan *dto.MetricFamily, ioWriter io.Writer, labelMap pkg.LabelNamespaceMap) {
-	w := bufio.NewWriter(ioWriter)
+	w := ioWriter
 
 	for mf := range ch {
 		for _, metric := range mf.Metric {
@@ -68,9 +69,9 @@ func Write(ch chan *dto.MetricFamily, ioWriter io.Writer, labelMap pkg.LabelName
 		}
 		_, err := expfmt.MetricFamilyToText(w, mf)
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatal(err)
 		}
 	}
 
-	w.Flush()
+	//w.Flush()
 }

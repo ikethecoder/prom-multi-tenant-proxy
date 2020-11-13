@@ -18,9 +18,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"time"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/patrickmn/go-cache"
 	"github.com/kelseyhightower/envconfig"
@@ -44,12 +45,13 @@ func main() {
     err := envconfig.Process("myapp", &s)
     if err != nil {
         log.Fatal(err.Error())
-    }
-    format := "Debug: %v\nPort: %d\nMetricsUrl: %s\nKongAdmin: %s\n"
-    _, err = fmt.Printf(format, s.Debug, s.Port, s.MetricsUrl, s.KongUrl)
-    if err != nil {
-        log.Fatal(err.Error())
-    }
+	}
+	log.SetFormatter(&log.JSONFormatter{})
+	if s.Debug {
+		log.SetLevel(log.DebugLevel)
+	}
+	format := "Debug: %v\nPort: %d\nMetricsUrl: %s\nKongAdmin: %s\n"
+	log.Debug(fmt.Sprintf(format, s.Debug, s.Port, s.MetricsUrl, s.KongUrl))
 
 	flag.Parse()
 
@@ -57,7 +59,7 @@ func main() {
 
 	labelMap, err := pkg.ParseConfig(&s.KongUrl)
 	if err != nil {
-		log.Println(err.Error())
+		log.Error(err.Error())
 	} else {
 		lcache.Set("kong-services", labelMap, cache.DefaultExpiration)
 	}
@@ -69,8 +71,8 @@ func main() {
 
 	addr := fmt.Sprintf("0.0.0.0:%d", s.Port)
 
-	log.Println("Starting proxy server on", addr)
+	log.Info("Starting proxy server on ", addr)
 	if err := http.ListenAndServe(addr, handler); err != nil {
-		log.Println("ListenAndServe:", err)
+		log.Error("ListenAndServe:", err)
 	}
 }

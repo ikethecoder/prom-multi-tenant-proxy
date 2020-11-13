@@ -14,11 +14,12 @@
 package main
 
 import (
-	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/patrickmn/go-cache"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/app/prom"
@@ -37,6 +38,7 @@ var hopHeaders = []string{
 	"Trailers",
 	"Transfer-Encoding",
 	"Upgrade",
+	"Content-Length",
 }
 
 func copyHeader(dst, src http.Header) {
@@ -70,7 +72,7 @@ type proxy struct {
 }
 
 func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
-	log.Println("R=", req.RemoteAddr, " M=", req.Method, " U=", req.URL, " S=", req.URL.Scheme)
+	log.Debug("R=", req.RemoteAddr, " M=", req.Method, " U=", req.URL, " S=", req.URL.Scheme)
 
 	// if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
 	// 	msg := "unsupported protocal scheme " + req.URL.Scheme
@@ -117,12 +119,12 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	resp, err := client.Do(&rr)
 	if err != nil {
 		http.Error(wr, "Server Error", http.StatusInternalServerError)
-		log.Println("ServeHTTP:", err)
+		log.Error("ServeHTTP:", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	log.Println(req.RemoteAddr, " ", resp.Status)
+	log.Debug(req.RemoteAddr, " ", resp.Status)
 
 	delHopHeaders(resp.Header)
 
@@ -132,23 +134,22 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	mfChan := make(chan *dto.MetricFamily, 1024)
 	go func() {
 		if err := prom.ParseReader(resp.Body, mfChan); err != nil {
-			log.Println("ERROR reading metrics:", err)
+			log.Error("ERROR reading metrics:", err)
 			return
 		}
 	}()
 
 	if labelMap, found := p.lcache.Get("kong-services"); found {
-		log.Println("Found Kong config in cache.. using it!")
+		log.Debug("Found Kong config in cache.. using it!")
 		prom.Write(mfChan, wr, *labelMap.(*pkg.LabelNamespaceMap))
 	} else {
-		log.Println("Refreshing kong services...")
+		log.Debug("Refreshing kong services...")
 		labelMap, err := pkg.ParseConfig(&p.kongUrl)
 		if err != nil {
-			log.Println(err.Error())
+			log.Error(err.Error())
 			http.Error(wr, "Server Error", http.StatusInternalServerError)
 		}
 		p.lcache.Set("kong-services", labelMap, cache.DefaultExpiration)
 		prom.Write(mfChan, wr, *labelMap)
 	}
-
 }

@@ -30,7 +30,7 @@ bin/query-proxy
 ```
 export MYAPP_PORT=9092
 export MYAPP_METRICSURL=https://kong-admin:8001
-export MYAPP_LABELMAPPATH=sample-map.yml
+export MYAPP_KONGURL=https://kong-admin:8001
 
 bin/metrics-proxy
 ```
@@ -68,8 +68,7 @@ docker run --rm --name metrics-proxy \
   -p 9091:9091 \
   -e MYAPP_PORT=9091 \
   -e MYAPP_METRICSURL=https://metrics_providers/metrics \
-  -e MYAPP_LABELMAPPATH=/var/sample-map.yml \
-  -v `pwd`/metrics-proxy/sample-map.yml:/var/sample-map.yml \
+  -e MYAPP_KONGURL=https://kong:8001/metrics \
   metrics-proxy.local
 ```
 

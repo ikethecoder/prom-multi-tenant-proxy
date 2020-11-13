@@ -1,11 +1,12 @@
 package pkg
 
 import (
-	"log"
 	"errors"
 	"fmt"
 	"strings"
 	// "io/ioutil"
+
+	log "github.com/sirupsen/logrus"
 
 	"encoding/json"
 	"net/http"
@@ -46,7 +47,7 @@ func ParseConfig(location *string) (*LabelNamespaceMap, error) {
 	for nextUrl != "" {
 		var data KongServices
 
-		log.Println("Getting", nextUrl)
+		log.Debug("Getting", nextUrl)
 		resp, err := http.Get(fmt.Sprintf("%s%s", *location, nextUrl))
 		if err != nil {
 			return nil, err
@@ -54,10 +55,10 @@ func ParseConfig(location *string) (*LabelNamespaceMap, error) {
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			return nil, errors.New("Failed to get Kong Service list.")
+			return nil, errors.New("failed to get Kong Service list")
 		}
 		json.NewDecoder(resp.Body).Decode(&data)
-		log.Println("Decoded - is next?", data.Next, len(data.Services))
+		log.Debug("Decoded - is next?", data.Next, len(data.Services))
 
 		nextUrl = data.Next
 
@@ -67,7 +68,7 @@ func ParseConfig(location *string) (*LabelNamespaceMap, error) {
 			for _, tag := range svc.Tags {
 				if strings.HasPrefix (tag, "ns.") {
 					var nsTag = strings.TrimPrefix (tag, "ns.")
-					log.Println("Service=", svc.Name, "Namespace=", nsTag)
+					log.Debug("Service=", svc.Name, " Namespace=", nsTag)
 
 					match := Namespace{}
 					match.Name = nsTag
