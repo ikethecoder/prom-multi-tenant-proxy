@@ -66,7 +66,7 @@ func ParseConfig(location *string) (*LabelNamespaceMap, error) {
 
 			// Find the tag that starts with ns.*
 			for _, tag := range svc.Tags {
-				if strings.HasPrefix (tag, "ns.") {
+				if strings.HasPrefix (tag, "ns.") && strings.Count (tag, ".") == 1  {
 					var nsTag = strings.TrimPrefix (tag, "ns.")
 					log.Debug("Service=", svc.Name, " Namespace=", nsTag)
 
