@@ -129,27 +129,30 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	delHopHeaders(resp.Header)
 
 	copyHeader(wr.Header(), resp.Header)
-	wr.WriteHeader(resp.StatusCode)
 
 	mfChan := make(chan *dto.MetricFamily, 1024)
 	go func() {
 		if err := prom.ParseReader(resp.Body, mfChan); err != nil {
 			log.Error("ERROR reading metrics:", err)
+			http.Error(wr, "Unable to parse metrics", http.StatusInternalServerError)
 			return
 		}
 	}()
 
 	if labelMap, found := p.lcache.Get("kong-services"); found {
 		log.Debug("Found Kong config in cache.. using it!")
+		wr.WriteHeader(resp.StatusCode)
 		prom.Write(mfChan, wr, *labelMap.(*pkg.LabelNamespaceMap))
 	} else {
 		log.Debug("Refreshing kong services...")
 		labelMap, err := pkg.ParseConfig(&p.kongUrl)
 		if err != nil {
 			log.Error(err.Error())
-			http.Error(wr, "Server Error", http.StatusInternalServerError)
+			http.Error(wr, "Temporarily unable to get Service list", http.StatusInternalServerError)
+		} else {
+			p.lcache.Set("kong-services", labelMap, cache.DefaultExpiration)
+			wr.WriteHeader(resp.StatusCode)
+			prom.Write(mfChan, wr, *labelMap)
 		}
-		p.lcache.Set("kong-services", labelMap, cache.DefaultExpiration)
-		prom.Write(mfChan, wr, *labelMap)
 	}
 }
