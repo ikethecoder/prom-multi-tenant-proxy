@@ -69,7 +69,7 @@ func Write(ch chan *dto.MetricFamily, ioWriter io.Writer, labelMap pkg.LabelName
 		}
 		_, err := expfmt.MetricFamilyToText(w, mf)
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err)
 		}
 	}
 
