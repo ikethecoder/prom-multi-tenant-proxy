@@ -85,7 +85,8 @@ func enforceLabelMatcher(matchers []*labels.Matcher, enforcedMatcher *labels.Mat
 	res := []*labels.Matcher{}
 	for _, m := range matchers {
 		if m.Name == enforcedMatcher.Name {
-			continue
+			// do not exclude - we are adding to the query
+			// continue
 		}
 		res = append(res, m)
 	}

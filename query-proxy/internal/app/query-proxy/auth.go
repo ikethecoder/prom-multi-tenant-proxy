@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
+	"github.com/patrickmn/go-cache"
 	// "github.com/dgrijalva/jwt-go"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
@@ -62,7 +65,6 @@ func ParseToken(token *string, config *pkg.Specification) (jwt.Token, error)  {
 func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var token string
-		var namespace string
 
 		log.Println("Verify Token:", len(r.Header["Authorization"]))
 
@@ -93,42 +95,80 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 			return
 		}
 
-		// jwt.WithVerify(jwa.RS256, &privKey.PublicKey)
-		// if config.VerifyToken {
-		// 	//key, _ := getKey(token, config)
-		// 	// , jwt.WithVerify(jwa.RS256, key)
-		// 	tok, err := jwt.Parse(strings.NewReader(token))
-		// 	if err != nil {
-		// 		panic(err)
-		// 	}
-		// } else {
-		// 	tok, err := jwt.Parse(strings.NewReader(token))
-		// 	if err != nil {
-		// 		panic(err)
-		// 	}
+		// buf, err := json.MarshalIndent(tok, "", "  ")
+		// if err != nil {
+		//   fmt.Printf("failed to generate JSON: %s\n", err)
+		// 	writeUnauthorisedResponse(w)
+		//   return
 		// }
-
-		buf, err := json.MarshalIndent(tok, "", "  ")
-		if err != nil {
-		  fmt.Printf("failed to generate JSON: %s\n", err)
-		  return
-		}
-		fmt.Printf("%s\n", buf)
+		// fmt.Printf("%s\n", buf)
 		
 		claims := tok.PrivateClaims()
-		for key, value := range claims {
-			fmt.Printf("%s\t%v\n", key, value)
+		log.Println("azp = ", claims["azp"])
+		log.Println("usr = ", claims["preferred_username"])
+		//fmt.Printf("sub\t%v\n", tok.Subject())
+		// for key, value := range claims {
+		// 	fmt.Printf("%s\t%v\n", key, value)
+		// }
+
+		var cacheKey string = claims["preferred_username"].(string)
+		log.Println("CACHE KEY", cacheKey)
+
+		if labels, found := config.LCache.Get(cacheKey); found {
+			log.Println("CACHE HIT!", labels)
+			ctx := context.WithValue(r.Context(), Namespace, labels.([]string))
+			handler(w, r.WithContext(ctx))
+		} else {
+
+			client := &http.Client{}
+
+			u, err := url.Parse(config.ResourceServerUrl)
+			if err != nil {
+				log.Fatal(err)
+				writeUnauthorisedResponse(w)
+				return
+			}
+
+			rr := http.Request{
+				Method: "GET",
+				URL:    u,
+			}
+			rr.Header = http.Header{
+				"Authorization": []string{r.Header.Get("Authorization")},
+			}
+		
+			resp, err := client.Do(&rr)
+			if err != nil {
+				http.Error(w, "Server Error", http.StatusInternalServerError)
+				log.Println("ServeHTTP:", err)
+				writeUnauthorisedResponse(w)
+				return
+			}
+			defer resp.Body.Close()
+		
+			body, err := ioutil.ReadAll(resp.Body)
+
+			var labels []string
+
+			log.Println("AUTHZ", r.RemoteAddr, resp.Status)
+
+			json.Unmarshal([]byte(body), &labels)
+
+			log.Println("filter", labels)
+
+			if (resp.StatusCode == 200) {
+				log.Println("CACHING!", cacheKey, labels)
+				config.LCache.Set(cacheKey, labels, cache.DefaultExpiration)
+			}
+
+			ctx := context.WithValue(r.Context(), Namespace, labels)
+			handler(w, r.WithContext(ctx))
 		}
-
-		namespace = fmt.Sprintf("%v", claims[config.NamespaceClaim])
-
-		ctx := context.WithValue(r.Context(), Namespace, namespace)
-		handler(w, r.WithContext(ctx))
 	}
 }
 
 func writeUnauthorisedResponse(w http.ResponseWriter) {
 	//w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
-	w.WriteHeader(400)
+	w.WriteHeader(401)
 	w.Write([]byte("{\"status\":\"error\",\"error\":\"Blocked Access\"}\n"))
 }

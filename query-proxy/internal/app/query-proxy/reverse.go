@@ -2,9 +2,10 @@ package proxy
 
 import (
 	"log"
+	"strings"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
+	"net/http/httputil"
 
 	"github.com/ikethecoder/prom-multi-tenant-proxy/pkg/injector"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
@@ -22,7 +23,7 @@ func ReversePrometheus(reverseProxy *httputil.ReverseProxy, prometheusServerURL 
 }
 
 func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQueryParameter string, config *pkg.Specification) error {
-	namespace := r.Context().Value(Namespace)
+	namespaces := r.Context().Value(Namespace)
 	expr, err := promql.ParseExpr(r.FormValue(prometheusQueryParameter))
 	if err != nil {
 		return err
@@ -31,8 +32,8 @@ func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQuer
 	err = injector.SetRecursive(expr, []*labels.Matcher{
 		{
 			Name:  config.NamespaceLabel,
-			Type:  labels.MatchEqual,
-			Value: namespace.(string),
+			Type:  labels.MatchRegexp,
+			Value: "^(" + strings.Join(namespaces.([]string),"|") + ")$",
 		},
 	})
 	if err != nil {
