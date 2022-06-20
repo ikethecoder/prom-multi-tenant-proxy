@@ -104,15 +104,14 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 		// fmt.Printf("%s\n", buf)
 		
 		claims := tok.PrivateClaims()
+		log.Println("sub = ", tok.Subject())
 		log.Println("azp = ", claims["azp"])
 		log.Println("usr = ", claims["preferred_username"])
-		//fmt.Printf("sub\t%v\n", tok.Subject())
 		// for key, value := range claims {
-		// 	fmt.Printf("%s\t%v\n", key, value)
+		// 	log.Println("%s\t%v\n", key, value)
 		// }
 
-		var cacheKey string = claims["preferred_username"].(string)
-		log.Println("CACHE KEY", cacheKey)
+		var cacheKey string = tok.Subject()
 
 		if labels, found := config.LCache.Get(cacheKey); found {
 			log.Println("CACHE HIT!", labels)
@@ -150,7 +149,7 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 
 			var labels []string
 
-			log.Println("AUTHZ", r.RemoteAddr, resp.Status)
+			log.Println("AUTHZ", config.ResourceServerUrl, r.RemoteAddr, resp.Status)
 
 			json.Unmarshal([]byte(body), &labels)
 
@@ -159,6 +158,8 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 			if (resp.StatusCode == 200) {
 				log.Println("CACHING!", cacheKey, labels)
 				config.LCache.Set(cacheKey, labels, cache.DefaultExpiration)
+			} else {
+				log.Println(" Error Response",string(body))
 			}
 
 			ctx := context.WithValue(r.Context(), Namespace, labels)
