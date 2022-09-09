@@ -57,9 +57,9 @@ func SetRecursive(node parser.Node, matchersToEnforce []*labels.Matcher) (err er
 	case *parser.NumberLiteral, *parser.StringLiteral:
 	// nothing to do
 
-	// case *parser.MatrixSelector:
-	// 	// inject labelselector
-	// 	n.LabelMatchers = enforceLabelMatchers(n.LabelMatchers, matchersToEnforce)
+	case *parser.MatrixSelector:
+		// inject labelselector
+		n.VectorSelector.(*parser.VectorSelector).LabelMatchers = enforceLabelMatchers(n.VectorSelector.(*parser.VectorSelector).LabelMatchers, matchersToEnforce)
 
 	case *parser.VectorSelector:
 		// inject labelselector
