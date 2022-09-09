@@ -9,8 +9,8 @@ import (
 
 	"github.com/ikethecoder/prom-multi-tenant-proxy/pkg/injector"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/promql"
+	"github.com/prometheus/prometheus/model/labels"
+	"github.com/prometheus/prometheus/promql/parser"
 )
 
 // ReversePrometheus a
@@ -24,7 +24,7 @@ func ReversePrometheus(reverseProxy *httputil.ReverseProxy, prometheusServerURL 
 
 func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQueryParameter string, config *pkg.Specification) error {
 	namespaces := r.Context().Value(Namespace)
-	expr, err := promql.ParseExpr(r.FormValue(prometheusQueryParameter))
+	expr, err := parser.ParseExpr(r.FormValue(prometheusQueryParameter))
 	if err != nil {
 		return err
 	}

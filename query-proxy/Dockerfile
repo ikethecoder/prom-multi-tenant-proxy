@@ -5,8 +5,8 @@ WORKDIR /go/src/app
 COPY cmd ./cmd
 COPY internal ./internal
 COPY pkg ./pkg
-COPY go.* Makefile ./
+COPY go.mod Makefile ./
 
-RUN make go-build go-install
+RUN make go-tidy go-build go-install
 
 CMD ["bin/app"]

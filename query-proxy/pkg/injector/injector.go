@@ -3,30 +3,30 @@ package injector
 import (
 	"fmt"
 
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/promql"
+	"github.com/prometheus/prometheus/model/labels"
+	"github.com/prometheus/prometheus/promql/parser"
 )
 
 //SetRecursive Injects the label in the Prometheus Query Node
-func SetRecursive(node promql.Node, matchersToEnforce []*labels.Matcher) (err error) {
+func SetRecursive(node parser.Node, matchersToEnforce []*labels.Matcher) (err error) {
 	switch n := node.(type) {
-	case *promql.EvalStmt:
+	case *parser.EvalStmt:
 		if err := SetRecursive(n.Expr, matchersToEnforce); err != nil {
 			return err
 		}
 
-	case promql.Expressions:
+	case parser.Expressions:
 		for _, e := range n {
 			if err := SetRecursive(e, matchersToEnforce); err != nil {
 				return err
 			}
 		}
-	case *promql.AggregateExpr:
+	case *parser.AggregateExpr:
 		if err := SetRecursive(n.Expr, matchersToEnforce); err != nil {
 			return err
 		}
 
-	case *promql.BinaryExpr:
+	case *parser.BinaryExpr:
 		if err := SetRecursive(n.LHS, matchersToEnforce); err != nil {
 			return err
 		}
@@ -34,39 +34,39 @@ func SetRecursive(node promql.Node, matchersToEnforce []*labels.Matcher) (err er
 			return err
 		}
 
-	case *promql.Call:
+	case *parser.Call:
 		if err := SetRecursive(n.Args, matchersToEnforce); err != nil {
 			return err
 		}
 
-	case *promql.ParenExpr:
+	case *parser.ParenExpr:
 		if err := SetRecursive(n.Expr, matchersToEnforce); err != nil {
 			return err
 		}
 
-	case *promql.UnaryExpr:
+	case *parser.UnaryExpr:
 		if err := SetRecursive(n.Expr, matchersToEnforce); err != nil {
 			return err
 		}
 
-	case *promql.SubqueryExpr:
+	case *parser.SubqueryExpr:
 		if err := SetRecursive(n.Expr, matchersToEnforce); err != nil {
 			return err
 		}
 
-	case *promql.NumberLiteral, *promql.StringLiteral:
+	case *parser.NumberLiteral, *parser.StringLiteral:
 	// nothing to do
 
-	case *promql.MatrixSelector:
-		// inject labelselector
-		n.LabelMatchers = enforceLabelMatchers(n.LabelMatchers, matchersToEnforce)
+	// case *parser.MatrixSelector:
+	// 	// inject labelselector
+	// 	n.LabelMatchers = enforceLabelMatchers(n.LabelMatchers, matchersToEnforce)
 
-	case *promql.VectorSelector:
+	case *parser.VectorSelector:
 		// inject labelselector
 		n.LabelMatchers = enforceLabelMatchers(n.LabelMatchers, matchersToEnforce)
 
 	default:
-		panic(fmt.Errorf("promql.Walk: unhandled node type %T", node))
+		panic(fmt.Errorf("parser.Walk: unhandled node type %T", node))
 	}
 
 	return err
