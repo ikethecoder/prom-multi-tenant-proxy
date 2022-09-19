@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"io/ioutil"
 	"log"
 	"strings"
 	"net/http"
@@ -43,6 +44,12 @@ func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQuer
 	q.Set(prometheusQueryParameter, expr.String())
 	log.Println("TRANSFORMED QUERY TO ", expr.String())
 	r.URL.RawQuery = q.Encode()
+
+	form := r.Form
+	body := form.Encode()
+	r.Body = ioutil.NopCloser(strings.NewReader(body))
+	r.ContentLength = int64(len(body))	
+
 	return nil
 }
 
