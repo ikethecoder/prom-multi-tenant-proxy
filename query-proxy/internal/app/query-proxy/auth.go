@@ -12,10 +12,8 @@ import (
 	"strings"
 
 	"github.com/patrickmn/go-cache"
-	// "github.com/dgrijalva/jwt-go"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
-	// "github.com/lestrrat-go/jwx/jwa"
 	
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
 )
@@ -159,7 +157,7 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 				log.Println("CACHING!", cacheKey, labels)
 				config.LCache.Set(cacheKey, labels, cache.DefaultExpiration)
 			} else {
-				log.Println(" Error Response",string(body))
+				log.Println("WARNING - Error Response",string(body))
 			}
 
 			ctx := context.WithValue(r.Context(), Namespace, labels)

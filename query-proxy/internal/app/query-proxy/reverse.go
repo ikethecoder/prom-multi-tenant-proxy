@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"io/ioutil"
 	"log"
 	"strings"
 	"net/http"
@@ -24,6 +25,7 @@ func ReversePrometheus(reverseProxy *httputil.ReverseProxy, prometheusServerURL 
 
 func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQueryParameter string, config *pkg.Specification) error {
 	namespaces := r.Context().Value(Namespace)
+
 	expr, err := parser.ParseExpr(r.FormValue(prometheusQueryParameter))
 	if err != nil {
 		return err
@@ -41,8 +43,14 @@ func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQuer
 	}
 	q := r.URL.Query()
 	q.Set(prometheusQueryParameter, expr.String())
-	log.Println("TRANSFORMED QUERY TO ", expr.String())
 	r.URL.RawQuery = q.Encode()
+
+	form := r.Form
+	body := form.Encode()
+	r.Body = ioutil.NopCloser(strings.NewReader(body))
+	r.ContentLength = int64(len(body))	
+
+	log.Println("TRANSFORMED QUERY TO ", r.URL.String(), " with body size ", len(body))
 	return nil
 }
 
