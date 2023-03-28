@@ -14,6 +14,7 @@
 package main
 
 import (
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -21,9 +22,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/patrickmn/go-cache"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/app/prom"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
+	"github.com/patrickmn/go-cache"
 	dto "github.com/prometheus/client_model/go"
 )
 
@@ -67,8 +68,8 @@ func appendHostToXForwardHeader(header http.Header, host string) {
 
 type proxy struct {
 	forwardUrl string
-	kongUrl string
-	lcache *cache.Cache
+	kongUrl    string
+	lcache     *cache.Cache
 }
 
 func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
@@ -135,6 +136,13 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 		if err := prom.ParseReader(resp.Body, mfChan); err != nil {
 			log.Error("ERROR reading metrics:", err)
 			http.Error(wr, "Unable to parse metrics", http.StatusInternalServerError)
+
+			bodyBytes, respBodyErr := io.ReadAll(resp.Body)
+			if respBodyErr != nil {
+				log.Error("ERROR reading response body:", respBodyErr)
+			}
+			log.Error("Response body:", string(bodyBytes))
+
 			return
 		}
 	}()
