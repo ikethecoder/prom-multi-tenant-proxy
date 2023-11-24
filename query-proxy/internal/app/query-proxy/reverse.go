@@ -46,6 +46,9 @@ func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQuer
 	body := form.Encode()
 	r.Body = io.NopCloser(strings.NewReader(body))
 	r.ContentLength = int64(len(body))
+	r.URL.RawQuery = ""
+	r.URL.Fragment = ""
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	log.Println("TRANSFORMED TO ", body)
 
@@ -66,9 +69,6 @@ func checkRequest(r *http.Request, prometheusServerURL *url.URL, config *pkg.Spe
 	r.Host = prometheusServerURL.Host
 	r.URL.Scheme = prometheusServerURL.Scheme
 	r.URL.Host = prometheusServerURL.Host
-	r.URL.RawQuery = ""
-	r.URL.Fragment = ""
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.Header.Set("X-Forwarded-Host", r.Host)
 	return nil
 }
