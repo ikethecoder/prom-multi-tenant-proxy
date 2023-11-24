@@ -1,15 +1,15 @@
 package proxy
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
-	"strings"
 	"net/http"
-	"net/url"
 	"net/http/httputil"
+	"net/url"
+	"strings"
 
-	"github.com/ikethecoder/prom-multi-tenant-proxy/pkg/injector"
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
+	"github.com/ikethecoder/prom-multi-tenant-proxy/pkg/injector"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql/parser"
 )
@@ -34,21 +34,20 @@ func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQuer
 		{
 			Name:  config.NamespaceLabel,
 			Type:  labels.MatchRegexp,
-			Value: "^(" + strings.Join(namespaces.([]string),"|") + ")$",
+			Value: "^(" + strings.Join(namespaces.([]string), "|") + ")$",
 		},
 	})
 	if err != nil {
 		return err
 	}
-	q := r.URL.Query()
-	q.Set(prometheusQueryParameter, expr.String())
-	log.Println("TRANSFORMED QUERY TO ", expr.String())
-	r.URL.RawQuery = q.Encode()
 
 	form := r.Form
+	form.Set(prometheusQueryParameter, expr.String())
 	body := form.Encode()
-	r.Body = ioutil.NopCloser(strings.NewReader(body))
-	r.ContentLength = int64(len(body))	
+	r.Body = io.NopCloser(strings.NewReader(body))
+	r.ContentLength = int64(len(body))
+
+	log.Println("TRANSFORMED TO ", body)
 
 	return nil
 }
@@ -67,6 +66,9 @@ func checkRequest(r *http.Request, prometheusServerURL *url.URL, config *pkg.Spe
 	r.Host = prometheusServerURL.Host
 	r.URL.Scheme = prometheusServerURL.Scheme
 	r.URL.Host = prometheusServerURL.Host
+	r.URL.RawQuery = ""
+	r.URL.Fragment = ""
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.Header.Set("X-Forwarded-Host", r.Host)
 	return nil
 }
