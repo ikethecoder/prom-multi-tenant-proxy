@@ -41,16 +41,22 @@ func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQuer
 		return err
 	}
 
-	form := r.Form
-	form.Set(prometheusQueryParameter, expr.String())
-	body := form.Encode()
-	r.Body = io.NopCloser(strings.NewReader(body))
-	r.ContentLength = int64(len(body))
-	r.URL.RawQuery = ""
-	r.URL.Fragment = ""
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	log.Println("TRANSFORMED TO ", body)
+	if r.Method == "GET" {
+		q := r.URL.Query()
+		q.Set(prometheusQueryParameter, expr.String())
+		r.URL.RawQuery = q.Encode()
+		log.Println("TRANSFORMED QUERY TO", r.URL)
+	} else {
+		form := r.Form
+		form.Set(prometheusQueryParameter, expr.String())
+		body := form.Encode()
+		r.Body = io.NopCloser(strings.NewReader(body))
+		r.ContentLength = int64(len(body))
+		r.URL.RawQuery = ""
+		r.URL.Fragment = ""
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		log.Println("TRANSFORMED BODY TO", body)
+	}
 
 	return nil
 }
