@@ -2,21 +2,21 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"encoding/json"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/lestrrat-go/jwx/v2/jwk"
+
+	"github.com/lestrrat-go/jwx/v2/jwt"
+
 	"github.com/patrickmn/go-cache"
-	// "github.com/dgrijalva/jwt-go"
-	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/lestrrat-go/jwx/jwt"
-	// "github.com/lestrrat-go/jwx/jwa"
-	
+
 	"github.com/ikethecoder/prom-multi-tenant-proxy/internal/pkg"
 )
 
@@ -28,31 +28,31 @@ const (
 	realm         = "Prometheus multi-tenant proxy"
 )
 
-func getKeySet(config *pkg.Specification) (*jwk.Set, error) {
+func getKeySet(config *pkg.Specification) (jwk.Set, error) {
 
-    // TODO: cache response so we don't have to make a request every time 
-    // we want to verify a JWT
-    set, err := jwk.FetchHTTP(config.JwksUrl)
-    if err != nil {
-        return nil, err
-    }
+	// TODO: cache response so we don't have to make a request every time
+	// we want to verify a JWT
+	set, err := jwk.Fetch(context.Background(), config.JwksUrl)
+	if err != nil {
+		return nil, err
+	}
 
 	return set, nil
 }
 
-func ParseToken(token *string, config *pkg.Specification) (jwt.Token, error)  {
+func ParseToken(token *string, config *pkg.Specification) (jwt.Token, error) {
 	if config.VerifyToken {
 		keySet, err := getKeySet(config)
 		if err != nil {
 			panic(err)
 		}
-		tok, err := jwt.Parse(strings.NewReader(*token), jwt.WithKeySet(keySet))
+		tok, err := jwt.Parse([]byte(*token), jwt.WithKeySet(keySet))
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("JWT validation failed - %v", err))
 		}
 		return tok, nil
 	} else {
-		tok, err := jwt.Parse(strings.NewReader(*token))
+		tok, err := jwt.Parse([]byte(*token))
 		if err != nil {
 			return nil, err
 		}
@@ -69,27 +69,33 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 		log.Println("Verify Token:", len(r.Header["Authorization"]))
 
 		// Get token from the Authorization header
-        // format: Authorization: Bearer 
+		// format: Authorization: Bearer
 		tokens, ok := r.Header["Authorization"]
 		if !ok {
 			writeUnauthorisedResponse(w)
 			return
 		}
-        if ok && len(tokens) >= 1 {
-            token = tokens[0]
-            token = strings.TrimPrefix(token, "Bearer ")
-        }
+		if ok && len(tokens) >= 1 {
+			token = tokens[0]
+			token = strings.TrimPrefix(token, "Bearer ")
+		}
 
-        // If the token is empty...
-        if token == "" {
-            // If we get here, the required token is missing
-            http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-            return
-        }
+		// If the token is empty...
+		if token == "" {
+			// If we get here, the required token is missing
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
 
 		// var tok jwt.Token
 		tok, err := ParseToken(&token, config)
 		if err != nil {
+			log.Println(err)
+			writeUnauthorisedResponse(w)
+			return
+		}
+
+		if err := jwt.Validate(tok); err != nil {
 			log.Println(err)
 			writeUnauthorisedResponse(w)
 			return
@@ -102,16 +108,23 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 		//   return
 		// }
 		// fmt.Printf("%s\n", buf)
-		
-		claims := tok.PrivateClaims()
-		log.Println("sub = ", tok.Subject())
-		log.Println("azp = ", claims["azp"])
-		log.Println("usr = ", claims["preferred_username"])
+
+		sub := tok.Subject()
+		log.Println("sub = ", sub)
+
+		exp := tok.Expiration()
+		log.Println("exp = ", exp)
+
+		var azp, _ = tok.Get("azp")
+		log.Println("azp = ", azp)
+
+		var prefName, _ = tok.Get("preferred_username")
+		log.Println("usr = ", prefName)
 		// for key, value := range claims {
 		// 	log.Println("%s\t%v\n", key, value)
 		// }
 
-		var cacheKey string = tok.Subject()
+		var cacheKey = tok.Subject()
 
 		if labels, found := config.LCache.Get(cacheKey); found {
 			log.Println("CACHE HIT!", labels)
@@ -135,7 +148,7 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 			rr.Header = http.Header{
 				"Authorization": []string{r.Header.Get("Authorization")},
 			}
-		
+
 			resp, err := client.Do(&rr)
 			if err != nil {
 				http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -144,7 +157,7 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 				return
 			}
 			defer resp.Body.Close()
-		
+
 			body, err := ioutil.ReadAll(resp.Body)
 
 			var labels []string
@@ -155,11 +168,11 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 
 			log.Println("filter", labels)
 
-			if (resp.StatusCode == 200) {
+			if resp.StatusCode == 200 {
 				log.Println("CACHING!", cacheKey, labels)
 				config.LCache.Set(cacheKey, labels, cache.DefaultExpiration)
 			} else {
-				log.Println(" Error Response",string(body))
+				log.Println(" Error Response", string(body))
 			}
 
 			ctx := context.WithValue(r.Context(), Namespace, labels)
