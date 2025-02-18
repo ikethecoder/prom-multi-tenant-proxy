@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -48,17 +47,21 @@ func ParseToken(token *string, config *pkg.Specification) (jwt.Token, error) {
 		}
 		tok, err := jwt.Parse([]byte(*token), jwt.WithKeySet(keySet))
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("JWT validation failed - %v", err))
+			return nil, fmt.Errorf("JWT parsing failed - %v", err)
 		}
+
+		if err := jwt.Validate(tok); err != nil {
+			return nil, fmt.Errorf("JWT validation failed - %v", err)
+		}
+
 		return tok, nil
 	} else {
-		tok, err := jwt.Parse([]byte(*token))
+		tok, err := jwt.Parse([]byte(*token), jwt.WithVerify(false), jwt.WithValidate(false))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("JWT parsing failed - %v", err)
 		}
 		return tok, nil
 	}
-
 }
 
 // JWTAuth can be used as a middleware chain to authenticate users before proxying a request
@@ -90,12 +93,6 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 		// var tok jwt.Token
 		tok, err := ParseToken(&token, config)
 		if err != nil {
-			log.Println(err)
-			writeUnauthorisedResponse(w)
-			return
-		}
-
-		if err := jwt.Validate(tok); err != nil {
 			log.Println(err)
 			writeUnauthorisedResponse(w)
 			return
