@@ -67,7 +67,7 @@ func checkRequest(r *http.Request, prometheusServerURL *url.URL, config *pkg.Spe
 			return err
 		}
 	}
-	if r.URL.Path == "/api/v1/series" {
+	if r.URL.Path == "/api/v1/series" || strings.HasPrefix(r.URL.Path, "/api/v1/label") {
 		if err := modifyRequest(r, prometheusServerURL, "match[]", config); err != nil {
 			return err
 		}
