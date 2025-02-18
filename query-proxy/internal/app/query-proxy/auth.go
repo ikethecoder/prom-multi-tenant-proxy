@@ -45,7 +45,7 @@ func ParseToken(token *string, config *pkg.Specification) (jwt.Token, error) {
 		if err != nil {
 			panic(err)
 		}
-		tok, err := jwt.Parse([]byte(*token), jwt.WithKeySet(keySet))
+		tok, err := jwt.Parse([]byte(*token), jwt.WithKeySet(keySet), jwt.WithValidate(true))
 		if err != nil {
 			return nil, fmt.Errorf("JWT parsing failed - %v", err)
 		}
@@ -56,7 +56,7 @@ func ParseToken(token *string, config *pkg.Specification) (jwt.Token, error) {
 
 		return tok, nil
 	} else {
-		tok, err := jwt.Parse([]byte(*token), jwt.WithVerify(false), jwt.WithValidate(false))
+		tok, err := jwt.Parse([]byte(*token), jwt.WithVerify(false), jwt.WithValidate(true))
 		if err != nil {
 			return nil, fmt.Errorf("JWT parsing failed - %v", err)
 		}
