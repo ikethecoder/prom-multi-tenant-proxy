@@ -62,15 +62,16 @@ func modifyRequest(r *http.Request, prometheusServerURL *url.URL, prometheusQuer
 }
 
 func checkRequest(r *http.Request, prometheusServerURL *url.URL, config *pkg.Specification) error {
-	if r.URL.Path == "/api/v1/query" || r.URL.Path == "/api/v1/query_range" {
+	if r.URL.Path == "/api/v1/query" || r.URL.Path == "/api/v1/query_range" || r.URL.Path == "/api/v1/query_exemplars" {
 		if err := modifyRequest(r, prometheusServerURL, "query", config); err != nil {
 			return err
 		}
-	}
-	if r.URL.Path == "/api/v1/series" || strings.HasPrefix(r.URL.Path, "/api/v1/label") {
+	} else if r.URL.Path == "/api/v1/series" || strings.HasPrefix(r.URL.Path, "/api/v1/label") {
 		if err := modifyRequest(r, prometheusServerURL, "match[]", config); err != nil {
 			return err
 		}
+	} else {
+		log.Println("WARN Passthrough", r.URL.Path)
 	}
 	r.Host = prometheusServerURL.Host
 	r.URL.Scheme = prometheusServerURL.Scheme
