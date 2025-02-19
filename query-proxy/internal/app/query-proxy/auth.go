@@ -148,7 +148,6 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 
 			resp, err := client.Do(&rr)
 			if err != nil {
-				http.Error(w, "Server Error", http.StatusInternalServerError)
 				log.Println("ServeHTTP:", err)
 				writeUnauthorisedResponse(w)
 				return
