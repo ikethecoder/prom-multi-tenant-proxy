@@ -138,8 +138,6 @@ func JWTAuth(handler http.HandlerFunc, config *pkg.Specification) http.HandlerFu
 				return
 			}
 
-			log.Println("GET data list with bearer", r.Header.Get("Authorization"))
-
 			rr := http.Request{
 				Method: "GET",
 				URL:    u,
